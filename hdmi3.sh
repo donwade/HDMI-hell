@@ -101,21 +101,67 @@ DOWN=1080
 
 DIMENSIONS=${ACROSS}x${DOWN}
 
-COLOUR_MAP_RGB=RGB888_1X24
-COLOUR_MAP_YUV=UYVY8_1X16
+COLOUR_MAP_RGB888=RGB888_1X24
+COLOUR_MAP_YUV16=UYVY8_1X16
+COLOUR_MAP_YUV20=UYVY8_1X20
 
-CTYPE=RGB
-if [ "$CTYPE" == "RGB" ]; then
-    COLOUR_MAP=$COLOUR_MAP_RGB
-elif [ "$CTYPE" == "YUV" ]; then
-    COLOUR_MAP=$COLOUR_MAP_RGB
-else
-    RED "UNKNOWN COMRESSION TYPE .... exiting"
-    exit
+KEEP=$*
+while [ "$1" != "" ]; do
+    GREEN "$1"
+    case $1 in
+        --encode)
+            shift
+            CTYPE=$1
+            if [ "$CTYPE" == "RGB888" ]; then
+                COLOUR_MAP=$COLOUR_MAP_RGB888
+            elif [ "$CTYPE" == "YUV16" ]; then
+                COLOUR_MAP=$COLOUR_MAP_YUV16
+            elif [ "$CTYPE" == "YUV20" ]; then
+                COLOUR_MAP=$COLOUR_MAP_YUV20
+            else
+                RED "UNKNOWN COMRESSION TYPE ( pick -RGB888 | -YUV16 | -YUV20) .... exiting"
+                exit
+            fi
+        ;;
+        --seconds)
+            shift
+            [ ! -z $1 ] || RED "need time in seconds" || exit
+            num_seconds=$1
+        ;;
+
+        --frames)
+            shift
+            num_frames=$1
+        ;;
+
+        *)
+            RED "unknown option >>> $1 <<<< ... exiting"
+            RED " pick --encode | --frames | --seconds"
+            exit
+        ;;
+    esac
+    shift
+done
+
+
+           
+if [ "$num_seconds" != "" ]; then 
+    CAPTURE_FRAME_COUNT=$(($num_seconds * $FRAME_RATE))
 fi
 
-CAPTURE_TIME_SEC=3
-CAPTURE_FRAME_COUNT=$(($CAPTURE_TIME_SEC * $FRAME_RATE))
+if [ "$num_frames" != '' ]; then
+    CAPTURE_FRAME_COUNT=$num_frames
+fi
+
+[ "$CAPTURE_FRAME_COUNT" != "" ] || RED "option --seconds or --frames missing ... exiting" || exit
+
+echo "$CAPTURE_FRAME_COUNT frame(s) will be captured"
+
+[ "$COLOUR_MAP" != "" ] || RED "option --encode {RGB888|YUV16|YUV20} missing ... exiting" || exit
+echo "COLOUR_MAP=$COLOUR_MAP"
+
+exit
+
 
 OUTPUT_FILE=$COLOUR_MAP-`date +%Y%m%d%H%M%S`.$CTYPE
 

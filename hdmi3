@@ -11,5 +11,5 @@
 #✔ 1600x1200p5
 #✔ 1920x1080i120
 
-./hdmi3.sh | tee hdmi.log
+./hdmi3.sh $* | tee hdmi.log
 
