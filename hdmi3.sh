@@ -76,8 +76,7 @@ function run()
         return $ret
     fi
     RED "command failed $1" 
-    echo $ret
-    return $ret
+    exit $ret
 }
 #--------------------------------------------------------------------------
 
@@ -90,20 +89,28 @@ reset
 
 FRAME_RATE=60
 
+#SVGA 
 #ACROSS=720
 #DOWN=480
 
-ACROSS=1920
-DOWN=1080
-
+# old ibm PC
 #ACROSS=800
 #DOWN=600
+
+# 4K resolution
+#ACROSS=3840
+#DOWN=2160
+#-----------------------------------------
+ACROSS=1920
+DOWN=1080
 
 DIMENSIONS=${ACROSS}x${DOWN}
 
 COLOUR_MAP_RGB888=RGB888_1X24
 COLOUR_MAP_YUV16=UYVY8_1X16
 COLOUR_MAP_YUV20=UYVY8_1X20
+
+#-----------------------------------------
 
 KEEP=$*
 while [ "$1" != "" ]; do
@@ -114,10 +121,22 @@ while [ "$1" != "" ]; do
             CTYPE=$1
             if [ "$CTYPE" == "RGB888" ]; then
                 COLOUR_MAP=$COLOUR_MAP_RGB888
+                COLOUR_SPACE=srgb
+                FILE_SUFFIX=rgb
+                PIXEL_FORMAT=RGB3
+                PLAY_FORMAT=bgr24
             elif [ "$CTYPE" == "YUV16" ]; then
                 COLOUR_MAP=$COLOUR_MAP_YUV16
+                COLOUR_SPACE=smpte170m
+                FILE_SUFFIX=yuv
+                PIXEL_FORMAT=UYVY
+                PLAY_FORMAT=uyvy422
             elif [ "$CTYPE" == "YUV20" ]; then
                 COLOUR_MAP=$COLOUR_MAP_YUV20
+                COLOUR_SPACE=smpte170m
+                FILE_SUFFIX=yuv
+                PIXEL_FORMAT=UYVY
+                PLAY_FORMAT=uyvy422
             else
                 RED "UNKNOWN COMRESSION TYPE ( pick -RGB888 | -YUV16 | -YUV20) .... exiting"
                 exit
@@ -125,7 +144,7 @@ while [ "$1" != "" ]; do
         ;;
         --seconds)
             shift
-            [ ! -z $1 ] || RED "need time in seconds" || exit
+            [ ! -z $1 ] || RED "need time in seconds ... exiting" || exit
             num_seconds=$1
         ;;
 
@@ -144,7 +163,6 @@ while [ "$1" != "" ]; do
 done
 
 
-           
 if [ "$num_seconds" != "" ]; then 
     CAPTURE_FRAME_COUNT=$(($num_seconds * $FRAME_RATE))
 fi
@@ -160,10 +178,8 @@ echo "$CAPTURE_FRAME_COUNT frame(s) will be captured"
 [ "$COLOUR_MAP" != "" ] || RED "option --encode {RGB888|YUV16|YUV20} missing ... exiting" || exit
 echo "COLOUR_MAP=$COLOUR_MAP"
 
-exit
 
-
-OUTPUT_FILE=$COLOUR_MAP-`date +%Y%m%d%H%M%S`.$CTYPE
+OUTPUT_FILE=$COLOUR_MAP-`date +%Y%m%d%H%M%S`.$FILE_SUFFIX
 
 EDID_FILE="/home/dwade/Scripts/HDMI/HOLD/${DIMENSIONS}-p${FRAME_RATE}.txt"
 
@@ -173,7 +189,6 @@ if [ ! -f $EDID_FILE ]; then
 else
     GREEN "EDID file $EDID_FILE exists"
 fi
-
 
 set -e
 
@@ -186,7 +201,7 @@ sleep 1
 
 
 GREEN "1a------------------------------------------------------------------"
-run "egrep -C5 --color "tc35*" /boot/firmware/config.txt"
+egrep -C5 --color "tc35*" /boot/firmware/config.txt
 
 GREEN "1b------------------------------------------------------------------"
 run "edid-decode $EDID_FILE"
@@ -237,22 +252,22 @@ echo "Connect CSI2's pad4 to rp1-cfe-csi2_ch0's pad0."
 run " media-ctl -d $DEVICE_NUM -l ''\''csi2'\'':4 -> '\''rp1-cfe-csi2_ch0'\'':0 [1]'"
 
 GREEN "8a-----------------------------------------------------------------"
-run "media-ctl -d $DEVICE_NUM -V ''\''tc358743 4-000f'\'':0 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:srgb]'"
+run "media-ctl -d $DEVICE_NUM -V ''\''tc358743 4-000f'\'':0 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:$COLOUR_SPACE]'"
 
 GREEN "9------------------------------------------------------------------"
 echo "Configure the media node."
 
-run "media-ctl -d $DEVICE_NUM -V '\"csi2\":0 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:srgb]'"
+run "media-ctl -d $DEVICE_NUM -V '\"csi2\":0 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:$COLOUR_SPACE]'"
 
 GREEN "10-----------------------------------------------------------------"
 
-run "media-ctl -d $DEVICE_NUM -V '\"csi2\":4 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:srgb]'"
+run "media-ctl -d $DEVICE_NUM -V '\"csi2\":4 [fmt:${COLOUR_MAP}/${DIMENSIONS} field:none colorspace:$COLOUR_SPACE]'"
 
 GREEN "11-----------------------------------------------------------------"
 echo "Set the output format."
 # unknown why you DON'T specify a device name
 
-v4l2-ctl --verbose -v width=${ACROSS},height=${DOWN},pixelformat=RGB3
+v4l2-ctl --verbose -v width=${ACROSS},height=${DOWN},pixelformat=$PIXEL_FORMAT
 
 GREEN "12-----------------------------------------------------------------"
 echo "Capture two frames for testing to verify if tc358743 is function."
@@ -293,12 +308,13 @@ set +e
 trap - ERR
 ask "do you want to proceeed"
 [ $? == 1 ] || exit
-set -e
+set -ex
 
 sudo dmesg -C || 1
 rm -f $OUTPUT_FILE
 
-v4l2-ctl --verbose -d /dev/video0 --set-fmt-video=width=${ACROSS},height=${DOWN},pixelformat='RGB3' --stream-mmap=4 --stream-skip=3 --stream-count=$CAPTURE_FRAME_COUNT --stream-to=$OUTPUT_FILE --stream-poll 
+GREEN "16-----------------------------------------------------------------"
+v4l2-ctl --verbose -d /dev/video0 --set-fmt-video=width=${ACROSS},height=${DOWN},pixelformat=$PIXEL_FORMAT --stream-mmap=4 --stream-skip=3 --stream-count=$CAPTURE_FRAME_COUNT --stream-to=$OUTPUT_FILE --stream-poll 
 
 if [ ! -f $OUTPUT_FILE ]; then
     BLINK_RED "record stream failed"
@@ -312,7 +328,7 @@ GREEN "13-----------------------------------------------------------------"
 echo "If you have installed a desktop version of Raspberry Pi, "
 echo "   you can use ffplay to directly play YUV files."
 
-echo "ffplay -f rawvideo -video_size ${DIMENSIONS} -pixel_format bgr24 $OUTPUT_FILE "
+echo "ffplay -f rawvideo -video_size ${DIMENSIONS} -pixel_format $PLAY_FORMAT $OUTPUT_FILE "
 
 
 
