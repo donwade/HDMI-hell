@@ -10,7 +10,12 @@ function preview()
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 
     set -ex
-    gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink "render-rectangle=<450,-250,1020,1480>" sync=false
+    if [ "$CAPTURE_FRAME_COUNT" != "0" ]; then
+        run "gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink \"render-rectangle=<450,-250,1020,1480>\" sync=false"
+    else
+        # RUN FOREVER !!!!
+        run "gst-launch-1.0 -v v4l2src device=/dev/video0                 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink \"render-rectangle=<450,-250,1020,1480>\" sync=false"
+    fi
     set +ex
 
     #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=RGB,width=$ACROSS,height=$ACROSS ! videoconvert ! xvimagesink "render-rectangle=<450,-250,1020,1480>" sync=false

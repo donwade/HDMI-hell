@@ -1,1 +1,3 @@
-./hdmi3 --frames 2 --encode RGB888 
+#!/bin/bash
+
+./hdmi3.sh  --frames 2 --encode RGB888 | tee hdmi3.log
