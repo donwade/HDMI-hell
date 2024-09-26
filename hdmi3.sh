@@ -1,6 +1,24 @@
 #!/bin/bash
 ##set -eE  # same as: `set -o errexit -o errtrace`                                                                                                                                  
 #--------------------------------------------------------------------------
+function preview()
+{
+    USERNAME=`whoami`
+    #echo $USERNAME
+    export DISPLAY=:0
+    export XAUTHORITY=/home/$USERNAME/.Xauthority
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/gstreamer-1.0
+
+    set -ex
+    gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink "render-rectangle=<450,-250,1020,1480>" sync=false
+    set +ex
+
+    #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=RGB,width=$ACROSS,height=$ACROSS ! videoconvert ! xvimagesink "render-rectangle=<450,-250,1020,1480>" sync=false
+    # 4K
+    #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=UYVY,width=$ACROSS,height=$DOWN  ! videoconvert ! xvimagesink "render-rectangle=<1400,170,1020,1800>" sync=false
+    #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=UYVY,width=$ACROSS,height=$DOWN  ! videoconvert ! xvimagesink "render-rectangle=<1400,170,1020,1800>" sync=false
+}
+
 function v4l2-ctl()
 {
     #SHOW="`echo "$1" | sed -r 's= -=\n\t-=g'`"
@@ -97,6 +115,11 @@ KEEP=$*
 while [ "$1" != "" ]; do
     GREEN "$1"
     case $1 in
+        
+        --file)
+           USE_FILE=true
+        ;;
+
         --encode)
             shift
             CTYPE=$1
@@ -106,18 +129,21 @@ while [ "$1" != "" ]; do
                 FILE_SUFFIX=rgb
                 PIXEL_FORMAT=RGB3
                 PLAY_FORMAT=bgr24
+                PREVIEW_FORMAT=RGB
             elif [ "$CTYPE" == "YUV16" ]; then
                 COLOUR_MAP=$COLOUR_MAP_YUV16
                 COLOUR_SPACE=smpte170m
                 FILE_SUFFIX=yuv
                 PIXEL_FORMAT=UYVY
                 PLAY_FORMAT=uyvy422
+                PREVIEW_FORMAT=YUV
             elif [ "$CTYPE" == "YUV20" ]; then
                 COLOUR_MAP=$COLOUR_MAP_YUV20
                 COLOUR_SPACE=smpte170m
                 FILE_SUFFIX=yuv
-                PIXEL_FORMAT=UYVY
+                PIXEL_FORMAT=V210    # ok
                 PLAY_FORMAT=uyvy422
+                PREVIEW_FORMAT=YUV
             else
                 RED "UNKNOWN COMRESSION TYPE ( pick -RGB888 | -YUV16 | -YUV20) .... exiting"
                 exit
@@ -180,7 +206,8 @@ DEVICE_NUM="`echo $MEDIA | rev | cut -c1`"
 echo "DEVICE_NUM = $DEVICE_NUM"
 sleep 1
 
-
+GREEN "00------------------------------------------------------------------"
+run "v4l2-compliance"
 GREEN "1a------------------------------------------------------------------"
 egrep -C5 --color "tc35*" /boot/firmware/config.txt
 
@@ -295,21 +322,26 @@ sudo dmesg -C || 1
 rm -f $OUTPUT_FILE
 
 GREEN "16-----------------------------------------------------------------"
-v4l2-ctl --verbose -d /dev/video0 --set-fmt-video=width=${ACROSS},height=${DOWN},pixelformat=$PIXEL_FORMAT --stream-mmap=4 --stream-skip=3 --stream-count=$CAPTURE_FRAME_COUNT --stream-to=$OUTPUT_FILE --stream-poll 
 
-if [ ! -f $OUTPUT_FILE ]; then
-    BLINK_RED "record stream failed"
-    exit
+if [ ! -z "$USE_FILE" ]; then
+    v4l2-ctl --verbose -d /dev/video0 --set-fmt-video=width=${ACROSS},height=${DOWN},pixelformat=$PIXEL_FORMAT --stream-mmap=4 --stream-skip=3 --stream-count=$CAPTURE_FRAME_COUNT --stream-to=$OUTPUT_FILE --stream-poll 
+
+    if [ ! -f $OUTPUT_FILE ]; then
+        BLINK_RED "record stream failed"
+        exit
+    fi
+    GREEN "record complete"
+    GREEN "`ls -al $OUTPUT_FILE`"
+
+
+    GREEN "13-----------------------------------------------------------------"
+    echo "If you have installed a desktop version of Raspberry Pi, "
+    echo "   you can use ffplay to directly play YUV files."
+
+    echo "ffplay -f rawvideo -video_size ${DIMENSIONS} -pixel_format $PLAY_FORMAT $OUTPUT_FILE "
+
+else
+    preview
 fi
-GREEN "record complete"
-GREEN "`ls -al $OUTPUT_FILE`"
-
-
-GREEN "13-----------------------------------------------------------------"
-echo "If you have installed a desktop version of Raspberry Pi, "
-echo "   you can use ffplay to directly play YUV files."
-
-echo "ffplay -f rawvideo -video_size ${DIMENSIONS} -pixel_format $PLAY_FORMAT $OUTPUT_FILE "
-
 
 
