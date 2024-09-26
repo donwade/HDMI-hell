@@ -1,21 +1,4 @@
 #!/bin/bash
-#https://www.linkedin.com/pulse/unlocking-potential-comprehensive-guide-using-media-controller-kumar-nplsc
-#https://wiki.geekworm.com/CSI_Manual_on_Pi_5
-
-#✔ 720x480p60
-#✔ 1024x76pP60
-#✔ 1280x720p50
-#✔ 1280x720p60
-#✔ 1280x1024
-#✔ 1920x1080i60
-#✔ 1920x1080i50
-#✔ 1920x1080p60
-#✔ 1920x1080p50
-#✔ 1600x1200p5
-#✔ 1920x1080i120
-
-#--------------------------------------------------------------------------
-#sudo killall `pidof v4l2-ctl`
 ##set -eE  # same as: `set -o errexit -o errtrace`                                                                                                                                  
 #--------------------------------------------------------------------------
 function v4l2-ctl()
@@ -57,8 +40,6 @@ function media-ctl()
     echo -e "$_RED command failed $*" 
     return $ret
 }
-
-
 #--------------------------------------------------------------------------
 function run()
 {
