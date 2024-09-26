@@ -41,3 +41,5 @@ putty*
 graph.dot
 graph.png
 *.save
+*.yuv
+*.rgb
