@@ -259,6 +259,16 @@ media-ctl -d $DEVICE_NUM -r
 GREEN "7------------------------------------------------------------------"
 v4l2-ctl -d /dev/v4l-subdev2 --set-dv-bt-timings query
 
+GREEN "7a ------------------------------------------------------------------"
+v4l2-ctl -d /dev/v4l-subdev0 --list-subdev-mbus-codes
+
+GREEN "7b ------------------------------------------------------------------"
+v4l2-ctl -d /dev/v4l-subdev2 --list-subdev-mbus-codes
+
+GREEN "7b ------------------------------------------------------------------"
+v4l2-ctl --all -d /dev/video0
+
+
 GREEN "8------------------------------------------------------------------"
 echo "Connect CSI2's pad4 to rp1-cfe-csi2_ch0's pad0."
 
