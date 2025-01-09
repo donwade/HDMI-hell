@@ -1,7 +1,12 @@
 #!/bin/bash
 #
+BASE=$(dirname  $0)
+echo $BASE
+sleep 3
+
 if [ "$1" == "" ]; then
-	./hdmi3.sh --frames 2 --encode RGB888 | tee hdmi3.log
+	$BASE/hdmi3.sh --frames 2 --encode RGB888 | tee /home/dwade/hdmi3.log
 else
-	./hdmi3.sh $* | tee hdmi3.log
+	$BASE/hdmi3.sh $* | tee /home/dwade/hdmi3.log
 fi
+chown dwade:dwade /home/dwade/hdmi3.log
