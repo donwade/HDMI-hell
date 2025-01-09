@@ -1,3 +1,7 @@
 #!/bin/bash
-./hdmi3.sh $* | tee hdmi3.log
-
+#
+if [ "$1" == "" ]; then
+	./hdmi3.sh --frames 2 --encode RGB888 | tee hdmi3.log
+else
+	./hdmi3.sh $* | tee hdmi3.log
+fi

@@ -9,14 +9,12 @@ function preview()
     export XAUTHORITY=/home/$USERNAME/.Xauthority
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 
-    set -ex
     if [ "$CAPTURE_FRAME_COUNT" != "0" ]; then
         run "gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink \"render-rectangle=<450,-250,1020,1480>\" sync=false"
     else
         # RUN FOREVER !!!!
         run "gst-launch-1.0 -v v4l2src device=/dev/video0                 ! video/x-raw,format=$PREVIEW_FORMAT,width=$ACROSS,height=$DOWN ! videoconvert ! xvimagesink \"render-rectangle=<450,-250,1020,1480>\" sync=false"
     fi
-    set +ex
 
     #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=RGB,width=$ACROSS,height=$ACROSS ! videoconvert ! xvimagesink "render-rectangle=<450,-250,1020,1480>" sync=false
     # 4K
@@ -24,6 +22,7 @@ function preview()
     #gst-launch-1.0 -v v4l2src device=/dev/video0 num-buffers=300 ! video/x-raw,format=UYVY,width=$ACROSS,height=$DOWN  ! videoconvert ! xvimagesink "render-rectangle=<1400,170,1020,1800>" sync=false
 }
 
+#--------------------------------------------------------------------------
 function v4l2-ctl()
 {
     #SHOW="`echo "$1" | sed -r 's= -=\n\t-=g'`"
@@ -44,6 +43,7 @@ function v4l2-ctl()
     return $ret
 }
 
+#--------------------------------------------------------------------------
 function media-ctl()
 {
     #SHOW="`echo "$1" | sed -r 's= -=\n\t-=g'`"
@@ -87,7 +87,7 @@ title "$0 $*"
 
 ME="`uname -n`"
 
-[ "$ME" == "pi5" ] || RED "only runs on pi5 .... exiting" || exit
+[ "$ME" == "pi5" ] || [ "$ME" == 'pi6' ] || RED "only runs on pi5 .... exiting" || exit
 
 #--------------------------------------------------------------------------
 reset
@@ -203,7 +203,6 @@ else
     GREEN "EDID file $EDID_FILE exists"
 fi
 
-set -e
 
 MEDIA="`sudo /usr/bin/v4l2-ctl --list-devices | grep -A50 rp1-cfe | grep  media | head -1`"
 v4l2-ctl --list-devices | grep -A50 rp1-cfe 
@@ -326,13 +325,9 @@ fi
 
 ln -sf /tmp/first_dmesg.log ./first_dmesg.log || true 
 
-
-set +e
-
 trap - ERR
 ask "do you want to proceeed"
 [ $? == 1 ] || exit
-set -ex
 
 sudo dmesg -C || 1
 rm -f $OUTPUT_FILE
