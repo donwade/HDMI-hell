@@ -4,11 +4,17 @@ HEIGHT=1080
 ENCODE=rgb
 DEST_FILE=outfile.$ENCODE
 
+COLOUR_MAP_RGB888=RGB888_1X24
+COLOUR_MAP_YUV16=UYVY8_1X16
+COLOUR_MAP_YUV20=UYVY8_1X20
+
+FRAME_RATE=60
+DIMENSIONS=${WIDTH}x${HEIGHT}
 
 
 case "$ENCODE" in
     rgb)
-        PIXEL_FORMAT=rgb3
+        PIXEL_FORMAT=RGB3 #rgb3
         FF_PLAY_FORMAT=bgr24
     ;;
 
@@ -23,7 +29,9 @@ function run()
     YELLOW "$*" 1>&2
     $*
     ret=$?
-    [ $ret == 0 ] || RED "$* failed"
+    echo
+    [ $ret == 0 ] || BLINK_RED "$* failed"
+    [ $ret != 0 ] || GREEN "PASS: $*" 
     return $ret
 }
 
@@ -39,6 +47,17 @@ function meedia-ctl()
 #    dtoverlay=tc358743
 #
 #    If your modules C790 support audio, add the following content to enable audio support. If you use C779, please ignore this step
+EDID_FILE="/home/dwade/Scripts/HDMI/HOLD/${DIMENSIONS}-p${FRAME_RATE}.txt"
+
+if [ ! -f $EDID_FILE ]; then
+    RED "missing $EDID_FILE ... exiting"
+    exit
+else
+    GREEN "EDID file $EDID_FILE exists"
+fi
+GREEN "00 ------------------------------------------------------------------"
+run "edid-decode $EDID_FILE"
+
 #    dtoverlay=tc358743-audio
 #
 #    Then reboot the raspberry Pi.
@@ -63,20 +82,38 @@ echo " and the pad0 of rp1-cfe-csi2_ch0 as video0:"
 echo 
 #media-ctl -d $MEDIA_DEVNAME -p
 
-run media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 9 ": tc358743" 
-
 TC3_SUBDEVICE=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": tc358743" | tail -1 | rev | cut -d' ' -f1 | rev`
 GREEN "TC3_SUBDEVICE=$TC3_SUBDEVICE"
 
+TC3_PAD=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 8 ": tc358743" | tail -1 | tr -s ' '  | cut -d' ' -f2 `
+GREEN "TC3_PAD=$TC3_PAD"
 echo
 
-echo "    ---------- locaate video device ------------------ "
-run media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 5 ": rp1-cfe-csi2_ch0"
+CSI_SUBDEVICE=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": csi2" | tail -1 | rev | cut -d' ' -f1 | rev`
+GREEN "CSI_SUBDEVICE=$CSI_SUBDEVICE"
 
-run media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": rp1-cfe-csi2_ch0"
+echo
+echo "3a ---------------------------------------------------------------------"
+echo
+echo "show supported media codes on TC3"
+run v4l2-ctl -d $TC3_SUBDEVICE --list-subdev-mbus-codes    
+echo 
 
-VIDEO_DEV=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": rp1-cfe-csi2_ch0" | grep 'node name' | tr -s ' ' | cut -d' ' -f5`
-GREEN "VIDEO_DEV=$VIDEO_DEV"
+echo "3b ---------------------------------------------------------------------"
+echo 
+echo "show supported media codes on CSI"
+run v4l2-ctl -d $CSI_SUBDEVICE --list-subdev-mbus-codes
+echo
+
+echo "3c    ---------- locaate video device and pad ------------------ "
+#run media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": rp1-cfe-csi2_ch0"
+
+CFE_VIDEO_DEV=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 2 ": rp1-cfe-csi2_ch0" | grep 'node name' | tr -s ' ' | cut -d' ' -f5`
+GREEN "CFE_VIDEO_DEV=$CFE_VIDEO_DEV"
+
+CFE_VIDEO_PAD=`media-ctl -d $MEDIA_DEVNAME -p | grep --color -A 4 ": rp1-cfe-csi2_ch0" | tail -1 | tr -s ' ' | cut -d' ' -f2` 
+GREEN "CFE_VIDEO_PAD=$CFE_VIDEO_PAD"
+
 
 echo "4 ----------------------------------------------------------------------"
 echo " To query the current HARDWARE source information, "
@@ -87,11 +124,18 @@ echo
 
     run v4l2-ctl -d $TC3_SUBDEVICE --query-dv-timings
 
-echo "5 ---------------------------------------------------------------"
+
+GREEN "5a ------------------------------------------------------------------"
+echo "load in the EDID file"
+echo "https://forums.raspberrypi.com/viewtopic.php?t=364896"
+
+run v4l2-ctl -d $TC3_SUBDEVICE --set-edid=file=$EDID_FILE --fix-edid-checksums
+
+echo "5b ---------------------------------------------------------------"
 echo "  Confirm the current input source information."
 echo
 
-v4l2-ctl -d $TC3_SUBDEVICE --set-dv-bt-timings query
+run v4l2-ctl -d $TC3_SUBDEVICE --set-dv-bt-timings query
 echo
 
 echo "6 --------------------------------------------------------------"
@@ -127,7 +171,7 @@ echo "  Other methods, such as using GStreamer, are not currently available."
 echo 
 
 rm $DEST_FILE
-v4l2-ctl --verbose -d $VIDEO_DEV --set-fmt-video=width=${WIDTH},height=${HEIGHT},pixelformat=$PIXEL_FORMAT --stream-mmap=4 --stream-skip=3 --stream-count=2 --stream-to=$DEST_FILE --stream-poll
+v4l2-ctl --verbose -d $CFE_VIDEO_DEV --set-fmt-video=width=${WIDTH},height=${HEIGHT},pixelformat=$PIXEL_FORMAT --stream-mmap=4 --stream-skip=3 --stream-count=2 --stream-to=$DEST_FILE --stream-poll
 
 GREEN "see $DEST_FILE"
 ls -al $DEST_FILE
